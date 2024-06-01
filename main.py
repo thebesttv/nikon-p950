@@ -30,7 +30,7 @@ def get_ffprobe_info(filename):
 def get_tag(d, tag):
     return d['tags'][tag]
 
-def handle_video(filename, output, rotate_left):
+def handle_video(filename, output, rotate_left, dry_run):
     print("=========================================")
     print(f"= Input:  {filename}")
     print(f"= Output: {output}")
@@ -59,13 +59,18 @@ def handle_video(filename, output, rotate_left):
         output=output,
         extra_vf=',transpose=2' if rotate_left else '',
     )
-    os.system(cmd)
+    if dry_run:
+        print(cmd)
+    else:
+        os.system(cmd)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Nikon P950 video compression tool')
     parser.add_argument('-l', '--left', action='store_true',
                         help='Rotate all videos 90 degrees to the left')
+    parser.add_argument('-n', '--dryrun', action='store_true',
+                        help='Print the commands instead of executing them')
     parser.add_argument('videos', nargs='+', help='Videos to compress')
 
     args = parser.parse_args()
@@ -77,4 +82,4 @@ if __name__ == '__main__':
         print(directory, basename, extension)
         output = os.path.join(directory, f'{basename}_c{extension}')
 
-        handle_video(filename, output, args.left)
+        handle_video(filename, output, args.left, args.dryrun)
