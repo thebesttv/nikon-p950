@@ -2,7 +2,7 @@ import os
 import subprocess
 import json
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 import argparse
 
 CMD = '''
@@ -45,10 +45,12 @@ def handle_video(filename, output, rotate_left, dry_run):
         print(f'  Same in stream {i}: {s["codec_type"]}')
 
     bad_time = datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%S.%fZ")
-    correct_time = bad_time.astimezone(pytz.timezone('Asia/Shanghai'))
+    correct_time = bad_time.astimezone(ZoneInfo('Asia/Shanghai'))
     print(f'Parsed into: {correct_time}')
 
-    formatted_time = correct_time.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    # use UTC timezone
+    formatted_time = correct_time.astimezone(ZoneInfo('UTC')) \
+        .strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     print()
     print(f'Original: {creation_time}')
     print(f'Updated:  {formatted_time}')
