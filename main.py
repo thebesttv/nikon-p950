@@ -80,6 +80,9 @@ if __name__ == '__main__':
         directory, basename = os.path.split(filename)
         basename, extension = os.path.splitext(basename)
         print(directory, basename, extension)
-        output = os.path.join(directory, f'{basename}_c{extension}')
+
+        output = os.path.join(directory, 'compressed', f'{basename}_c{extension}')
+        if not args.dryrun:
+            os.makedirs(os.path.dirname(output), exist_ok=True)
 
         handle_video(filename, output, args.left, args.dryrun)
