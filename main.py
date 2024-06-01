@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 import json
@@ -51,12 +52,13 @@ def handle_video(filename):
     print(f'Original: {creation_time}')
     print(f'Updated:  {formatted_time}')
 
-    print(CMD.format(
+    cmd = CMD.format(
         input=filename,
         ctime=formatted_time,
         output='output.mp4',
         extra_vf=',transpose=2' if ROTATE_LEFT else '',
-    ))
+    )
+    os.system(cmd)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
