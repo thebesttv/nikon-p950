@@ -202,17 +202,34 @@ local function buildGUI(f, properties)
   -- 在表格末尾添加一行，显示去重后的照片总数，使用加粗字体
   addTableRow(contents, f, "Total unique photos", tostring(#allPhotos), "<system/bold>")
 
-  -- 添加非拍摄生成的照片数量行
-  addTableRow(contents, f, "Non-camera generated photos", tostring(#nonCameraGenerated), "<system/bold>")
-
-  -- 如果有非拍摄生成的照片，列出前五个文件名
+  -- 如果有非拍摄生成的照片，列出这些照片
   if #nonCameraGenerated > 0 then
-    addTableRow(contents, f, "First 5 non-camera generated:", "", "<system/bold>")
-    for i = 1, math.min(5, #nonCameraGenerated) do
+    -- 添加非拍摄生成的照片数量行
+    addTableRow(contents, f, "Non-camera generated photos", tostring(#nonCameraGenerated), "<system/bold>")
+
+    local items = {}
+    local maxChars = 0
+    for i = 1, #nonCameraGenerated do
       local fileName = nonCameraGenerated[i]:getFormattedMetadata("fileName")
-      addTableRow(contents, f, fileName, "", "<system>")
+      local path = nonCameraGenerated[i]:getRawMetadata("path")
+
+      local line = fileName .. "\t" .. path
+      table.insert(items, line)
+      maxChars = math.max(maxChars, #line)
     end
+
+    table.insert(contents, f:scrolled_view {
+      height = 200,
+      width = 500,
+      f:static_text {
+        title = table.concat(items, "\n"),
+        width_in_chars = math.max(50, maxChars),
+        height_in_lines = #items,
+      },
+    })
+
     LrDialogs.message("Error", "Can't be applied to non-camera generated sets!", "critical")
+
     return contents
   end
 
