@@ -303,6 +303,7 @@ LrTasks.startAsyncTask(function()
     -- 将contents表中的UI元素放入到一个column布局中
     local c = f:column {
       bind_to_object = properties,
+      fill = 1,
       spacing = f:control_spacing(),
       unpack(contents), -- 解包contents表以将其作为子元素
     }
