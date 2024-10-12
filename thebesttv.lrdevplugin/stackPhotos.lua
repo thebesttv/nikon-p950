@@ -366,26 +366,9 @@ local function buildGUI(f, properties)
       end,
       enabled = LrView.bind("actionEnabled"), -- 绑定按钮的启用状态
     },
-    f:push_button {
-      title = "Select",
-      action = function()
-        log("selected: ", properties.selected)
-      end,
-      enabled = true, -- 绑定按钮的启用状态
-    },
   })
 
-  properties.selected = {} -- 用于绑定simple_list的选中项
-  properties:addObserver('selected', function(properties, key, newValue)
-    LrTasks.startAsyncTask(function()
-      log("selected changed")
-      if properties.selected and #properties.selected > 0 then
-        local selectedItem = properties.selected[1] -- 假设选中的是第一个
-        log("Selected Group: " .. selectedItem.title)
-        -- 可以在这里调用 `selectPhotosWithinRange` 等其他逻辑
-      end
-    end)
-  end)
+  -- 不知道为什么，properties:addObserver() 无法触发
 
   -- 解析后的NCCONLST.LST文件内容
   addTableRow(contents, f, "NCCONLST.LST Contents:", "", "<system/bold>")
@@ -395,7 +378,18 @@ local function buildGUI(f, properties)
   table.insert(contents, f:simple_list {
     title = "Group List",
     items = LrView.bind("groupList"), -- 绑定组列表
-    value = LrView.bind("selected"),  -- 绑定选中的组
+    value = LrView.bind { key = "selected",
+      transform = function(value, fromTable)
+        properties.selectedObserved = value
+        LrTasks.startAsyncTask(function()
+          if properties.selected and #properties.selected > 0 then
+            local selectedItem = properties.selected[1] -- 假设选中的是第一个
+            selectPhotosWithinRange(catalog, photoOfName, selectedItem)
+          end
+        end)
+        return value
+      end
+    },
     height = 200,
     width = 500,
     fill_horizontal = 1,
