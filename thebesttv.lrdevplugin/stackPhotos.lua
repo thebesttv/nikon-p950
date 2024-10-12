@@ -16,6 +16,8 @@ local LrFileUtils = import 'LrFileUtils'
 local LrBinding = import 'LrBinding'
 local LrFunctionContext = import 'LrFunctionContext'
 
+local LrXml = import "LrXml"
+
 -- 获取所有选中source中的照片并去重
 local function getUniquePhotosFromSources(sources)
   local allPhotosSet = {}
@@ -69,6 +71,16 @@ local function addTableRow(contents, viewFactory, leftText, rightText, font)
   })
 end
 
+-- 添加一行，有bind和transform
+local function addTableLineWithBind(contents, viewFactory, prefix, bindKey, font)
+  addTableRow(contents, viewFactory, LrView.bind {
+      key = bindKey,
+      transform = function(value, fromTable)
+        return prefix .. (value or "")
+      end },
+    "", font)
+end
+
 -- 为每个source添加表格行
 local function addSourceRowsToContents(contents, sources, viewFactory)
   for i, source in ipairs(sources) do
@@ -83,7 +95,7 @@ end
 
 -- 检查各个磁盘中是否存在文件NCFL/NCCONLST.LST，并返回第一个找到的文件路径
 local function checkForFileInDrives()
-  local drives = {"D", "E", "F"} -- C盘没必要查找
+  local drives = { "D", "E", "F" } -- C盘没必要查找
   for _, drive in ipairs(drives) do
     local filePath = drive .. ":/NCFL/NCCONLST.LST"
     if LrFileUtils.exists(filePath) then
@@ -98,7 +110,65 @@ local function updateActionButton(properties)
   properties.actionEnabled = (fileName == "NCCONLST.LST")
 end
 
-LrTasks.startAsyncTask(function ()
+-- 读取并解析XML
+local function parseXml(filename)
+  local content = LrFileUtils.readFile(filename)
+
+  -- 使用LrXml解析XML字符串
+  local xmlDom = LrXml.parseXml(content)
+
+  if not xmlDom then
+    log("无法解析XML文件: " .. filename)
+  end
+
+  return xmlDom
+end
+
+local function fileNameFromPath(path)
+  return path:match("[^\\/]+$")
+end
+
+-- 处理XML DOM对象
+local function processNCCONLST(xmlDom, properties)
+  local header = xmlDom:childAtIndex(1)
+  local modelName = header:childAtIndex(3):text()
+  properties.modelName = modelName
+
+  local rengroup = xmlDom:childAtIndex(2)
+
+  local groupTotal = rengroup:childAtIndex(1):text()
+  groupTotal = tonumber(groupTotal)
+  properties.groupTotal = groupTotal
+
+  local groupList = rengroup:childAtIndex(2)
+  -- items: (table, default: nil) Table of items to be displayed. Each entry has a localizeable title and a value.
+  local groupItems = {}
+  -- 遍历每个group
+  for i = 1, groupList:childCount() do
+    local group = groupList:childAtIndex(i)
+    local groupNumber = tonumber(group:childAtIndex(1):text())
+    local groupCount = tonumber(group:childAtIndex(2):text())
+    local groupFlag = group:childAtIndex(3) -- 未使用
+
+    local firstPic = group:childAtIndex(4):text()
+    local lastPic = group:childAtIndex(5):text()
+    local displayPic = group:childAtIndex(6):text()
+
+    firstPic = fileNameFromPath(firstPic)
+    lastPic = fileNameFromPath(lastPic)
+    displayPic = fileNameFromPath(displayPic)
+
+    table.insert(groupItems, {
+      title = string.format(
+        "%3d: %2d photos, %s - %s, display: %s",
+        groupNumber, groupCount, firstPic, lastPic, displayPic),
+      value = groupNumber
+    })
+  end
+  properties.groupList = groupItems
+end
+
+LrTasks.startAsyncTask(function()
   local catalog = LrApplication.activeCatalog()
 
   -- 获取当前显示的文件夹
@@ -114,8 +184,7 @@ LrTasks.startAsyncTask(function ()
   -- 过滤出非拍摄生成的照片
   local nonCameraGenerated = filterNonCameraGeneratedPhotos(allPhotos)
 
-  LrFunctionContext.callWithContext('GetFileName', function( context )
-
+  LrFunctionContext.callWithContext('GetFileName', function(context)
     -- 创建LrView工厂对象
     local f = LrView.osFactory()
     local bind = LrView.bind
@@ -147,8 +216,11 @@ LrTasks.startAsyncTask(function ()
     -- properties 用于 bind() 相关
     local properties = LrBinding.makePropertyTable(context)
     properties.ncconlst = checkForFileInDrives() or ""
-    properties.actionEnabled = false  -- 用于控制OK按钮的启用状态
+    properties.actionEnabled = false -- 用于控制OK按钮的启用状态
     updateActionButton(properties)
+    properties.modelName = nil
+    properties.groupTotal = nil
+    properties.groupList = nil
 
     -- 如果所有照片都是拍摄生成的，准备堆叠连拍照片
     if #nonCameraGenerated == 0 then
@@ -175,16 +247,15 @@ LrTasks.startAsyncTask(function ()
             })
 
             if file then
-              local selectedFileName = file[1]:match("[^\\/]+$")  -- 获取文件名
+              local selectedFileName = file[1]:match("[^\\/]+$") -- 获取文件名
               if selectedFileName == "NCCONLST.LST" then
-                properties.ncconlst = file[1]  -- 更新绑定的值
+                properties.ncconlst = file[1]                    -- 更新绑定的值
                 updateActionButton(properties)
               else
                 -- 文件名不匹配时，弹出错误框
                 LrDialogs.message("Error", "Please select the NCCONLST.LST file.", "critical")
               end
             end
-
           end
         }
       })
@@ -193,11 +264,24 @@ LrTasks.startAsyncTask(function ()
         f:push_button {
           title = "Run",
           action = function()
-            -- OK按钮的行为
-            LrDialogs.message("File Selected", properties.ncconlst, "info")
+            local xmlDom = parseXml(properties.ncconlst)
+            processNCCONLST(xmlDom, properties)
           end,
           enabled = LrView.bind("actionEnabled"), -- 绑定按钮的启用状态
         },
+      })
+
+      -- 解析后的NCCONLST.LST文件内容
+      addTableRow(contents, f, "NCCONLST.LST Contents:", "", "<system/bold>")
+      addTableLineWithBind(contents, f, "Model Name: ", "modelName", "<system>")
+      -- 连拍总数
+      addTableLineWithBind(contents, f, "Group Total: ", "groupTotal", "<system>")
+      table.insert(contents, f:simple_list {
+        title = "Group List",
+        items = LrView.bind("groupList"),
+        height = 200,
+        fill_horizontal = 1,
+        place_horizontal = 1,
       })
     end
 
@@ -217,9 +301,8 @@ LrTasks.startAsyncTask(function ()
     LrDialogs.presentModalDialog {
       title = "Source Information",
       contents = c,
-      resizable = false,
+      resizable = true,
       cancelVerb = "< exclude >"
     }
   end)
-
 end)
