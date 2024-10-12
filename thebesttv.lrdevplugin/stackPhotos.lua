@@ -298,7 +298,7 @@ local function buildGUI(f, properties)
 
   table.insert(contents, f:row {
     f:push_button {
-      title = "Run",
+      title = "Read NCCONLST.LST",
       action = function()
         local xmlDom = parseXml(properties.ncconlst)
         processNCCONLST(xmlDom, properties)
