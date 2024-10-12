@@ -193,8 +193,6 @@ local function buildGUI(f, properties)
   -- 过滤出非拍摄生成的照片
   local nonCameraGenerated = filterNonCameraGeneratedPhotos(allPhotos)
 
-
-
   -- 添加标题行，使用加粗字体
   addTableRow(contents, f, "Source Folder", "#Photos", "<system/bold>")
 
@@ -214,71 +212,70 @@ local function buildGUI(f, properties)
       local fileName = nonCameraGenerated[i]:getFormattedMetadata("fileName")
       addTableRow(contents, f, fileName, "", "<system>")
     end
-    addTableRow(contents, f, "Can't be applied to non-camera generated sets!!!", "", "<system/bold>")
+    LrDialogs.message("Error", "Can't be applied to non-camera generated sets!", "critical")
+    return contents
   end
 
-  -- 如果所有照片都是拍摄生成的，准备堆叠连拍照片
-  if #nonCameraGenerated == 0 then
-    addTableRow(contents, f, "Default NCFL/NCCONLST.LST:", properties.ncconlst, "<system/bold>")
+  -- 所有照片都是拍摄生成的，准备堆叠连拍照片
+  addTableRow(contents, f, "Default NCFL/NCCONLST.LST:", properties.ncconlst, "<system/bold>")
 
-    table.insert(contents, f:row {
-      f:static_text {
-        title = "Selected file:",
-      },
-      f:edit_field {
-        value = LrView.bind("ncconlst"),
-        width_in_chars = 30,
-        enabled = false,
-      },
-      f:push_button {
-        title = "Select File",
-        action = function()
-          -- 文件选择对话框
-          local file = LrDialogs.runOpenPanel({
-            title = "Select a File",
-            canChooseFiles = true,
-            canChooseDirectories = false,
-            allowsMultipleSelection = false,
-          })
+  table.insert(contents, f:row {
+    f:static_text {
+      title = "Selected file:",
+    },
+    f:edit_field {
+      value = LrView.bind("ncconlst"),
+      width_in_chars = 30,
+      enabled = false,
+    },
+    f:push_button {
+      title = "Select File",
+      action = function()
+        -- 文件选择对话框
+        local file = LrDialogs.runOpenPanel({
+          title = "Select a File",
+          canChooseFiles = true,
+          canChooseDirectories = false,
+          allowsMultipleSelection = false,
+        })
 
-          if file then
-            local selectedFileName = file[1]:match("[^\\/]+$") -- 获取文件名
-            if selectedFileName == "NCCONLST.LST" then
-              properties.ncconlst = file[1]                    -- 更新绑定的值
-              updateActionButton(properties)
-            else
-              -- 文件名不匹配时，弹出错误框
-              LrDialogs.message("Error", "Please select the NCCONLST.LST file.", "critical")
-            end
+        if file then
+          local selectedFileName = file[1]:match("[^\\/]+$") -- 获取文件名
+          if selectedFileName == "NCCONLST.LST" then
+            properties.ncconlst = file[1]                    -- 更新绑定的值
+            updateActionButton(properties)
+          else
+            -- 文件名不匹配时，弹出错误框
+            LrDialogs.message("Error", "Please select the NCCONLST.LST file.", "critical")
           end
         end
-      }
-    })
+      end
+    }
+  })
 
-    table.insert(contents, f:row {
-      f:push_button {
-        title = "Run",
-        action = function()
-          local xmlDom = parseXml(properties.ncconlst)
-          processNCCONLST(xmlDom, properties)
-        end,
-        enabled = LrView.bind("actionEnabled"), -- 绑定按钮的启用状态
-      },
-    })
+  table.insert(contents, f:row {
+    f:push_button {
+      title = "Run",
+      action = function()
+        local xmlDom = parseXml(properties.ncconlst)
+        processNCCONLST(xmlDom, properties)
+      end,
+      enabled = LrView.bind("actionEnabled"), -- 绑定按钮的启用状态
+    },
+  })
 
-    -- 解析后的NCCONLST.LST文件内容
-    addTableRow(contents, f, "NCCONLST.LST Contents:", "", "<system/bold>")
-    addTableLineWithBind(contents, f, "Model Name: ", "modelName", "<system>")
-    -- 连拍总数
-    addTableLineWithBind(contents, f, "Group Total: ", "groupTotal", "<system>")
-    table.insert(contents, f:simple_list {
-      title = "Group List",
-      items = LrView.bind("groupList"),
-      height = 200,
-      fill_horizontal = 1,
-      place_horizontal = 1,
-    })
-  end
+  -- 解析后的NCCONLST.LST文件内容
+  addTableRow(contents, f, "NCCONLST.LST Contents:", "", "<system/bold>")
+  addTableLineWithBind(contents, f, "Model Name: ", "modelName", "<system>")
+  -- 连拍总数
+  addTableLineWithBind(contents, f, "Group Total: ", "groupTotal", "<system>")
+  table.insert(contents, f:simple_list {
+    title = "Group List",
+    items = LrView.bind("groupList"),
+    height = 200,
+    fill_horizontal = 1,
+    place_horizontal = 1,
+  })
 
   return contents
 end
