@@ -128,6 +128,15 @@ local function fileNameFromPath(path)
   return path:match("[^\\/]+$")
 end
 
+-- 解析照片名，例如 DSCN1234.NRW -> DSCN, 1234, NRW
+local function parsePhotoName(photoName)
+  local prefix, number, extension = photoName:match("^(%a+)(%d+)%.(%a+)$")
+  if not prefix or not number or not extension then
+    LrDialogs.message("Error", "Invalid photo name: " .. photoName, "critical")
+  end
+  return prefix, tonumber(number), extension
+end
+
 -- 处理XML DOM对象
 local function processNCCONLST(xmlDom, properties)
   local header = xmlDom:childAtIndex(1)
@@ -158,7 +167,17 @@ local function processNCCONLST(xmlDom, properties)
     lastPic = fileNameFromPath(lastPic)
     displayPic = fileNameFromPath(displayPic)
 
+    local _, firstNumber, _ = parsePhotoName(firstPic)
+    local _, lastNumber, _ = parsePhotoName(lastPic)
+    local _, displayNumber, _ = parsePhotoName(displayPic)
+
     table.insert(groupItems, {
+      groupNumber = groupNumber,
+      groupCount = groupCount,
+      firstNumber = firstNumber,
+      lastNumber = lastNumber,
+      displayNumber = displayNumber,
+      -- for simple_list
       title = string.format(
         "%3d: %2d photos, %s - %s, display: %s",
         groupNumber, groupCount, firstPic, lastPic, displayPic),
@@ -206,16 +225,43 @@ local function checkNonCameraGeneratedPhotos(contents, f, allPhotos)
 end
 
 local function checkDuplicatePhotoNames(contents, f, allPhotos)
-  local photoOfName = {} -- name -> photo
+  local photoOfName = {} -- number -> photo
   for _, photo in ipairs(allPhotos) do
     local fileName = photo:getFormattedMetadata("fileName")
-    if photoOfName[fileName] then
-      addTableRow(contents, f, "Duplicate photo name: " .. fileName, "", "<system/bold>")
+    local _, number, _ = parsePhotoName(fileName)
+    log(fileName .. " " .. number)
+    if photoOfName[number] then
+      local anotherPhoto = photoOfName[number]
+      local anotherFileName = anotherPhoto:getFormattedMetadata("fileName")
+      addTableRow(contents, f,
+        "Duplicate photo name: " .. anotherFileName .. " & " .. fileName,
+        "", "<system/bold>")
       return photoOfName, false
     end
-    photoOfName[fileName] = photo
+    photoOfName[number] = photo
   end
   return photoOfName, true
+end
+
+-- 返回 firstPic 和 lastPic 之间的照片。如果 displayPic 存在，它会是第一张照片
+local function getPhotosWithinRange(photoOfName, firstNumber, lastNumber, displayNumber)
+  local photos = {}
+
+  local photo = photoOfName[displayNumber]
+  if photo then
+    table.insert(photos, photo)
+  end
+
+  for i = firstNumber, lastNumber do
+    if i ~= displayNumber then
+      local photo = photoOfName[i]
+      if photo then
+        table.insert(photos, photo)
+      end
+    end
+  end
+
+  return photos
 end
 
 local function buildGUI(f, properties)
@@ -239,11 +285,6 @@ local function buildGUI(f, properties)
 
   -- 获取去重后的所有照片
   local allPhotos = getUniquePhotosFromSources(activeFolders)
-  -- 检查是否有重复的照片名
-  local photoOfName, ok = checkDuplicatePhotoNames(contents, f, allPhotos)
-  if not ok then
-    return contents
-  end
 
   -- 添加标题行，使用加粗字体
   addTableRow(contents, f, "Source Folder", "#Photos", "<system/bold>")
@@ -256,6 +297,12 @@ local function buildGUI(f, properties)
 
   -- 如果有非拍摄生成的照片，列出这些照片
   if checkNonCameraGeneratedPhotos(contents, f, allPhotos) then
+    return contents
+  end
+
+  -- 检查是否有重复的照片计数
+  local photoOfName, ok = checkDuplicatePhotoNames(contents, f, allPhotos)
+  if not ok then
     return contents
   end
 
@@ -304,6 +351,24 @@ local function buildGUI(f, properties)
         processNCCONLST(xmlDom, properties)
       end,
       enabled = LrView.bind("actionEnabled"), -- 绑定按钮的启用状态
+    },
+    f:push_button {
+      title = "Select",
+      action = function()
+        -- 遍历 groupList，看哪些在 photoOfName 中
+        for _, group in ipairs(properties.groupList) do
+          local firstNumber = group.firstNumber
+          local lastNumber = group.lastNumber
+          local displayNumber = group.displayNumber
+
+          local photos = getPhotosWithinRange(photoOfName, firstNumber, lastNumber, displayNumber)
+          if #photos > 0 then
+            -- 选中第一张和其余的
+            catalog:setSelectedPhotos(photos[1], photos)
+          end
+        end
+      end,
+      enabled = true, -- 绑定按钮的启用状态
     },
   })
 
