@@ -205,6 +205,19 @@ local function checkNonCameraGeneratedPhotos(contents, f, allPhotos)
   return true
 end
 
+local function checkDuplicatePhotoNames(contents, f, allPhotos)
+  local photoOfName = {} -- name -> photo
+  for _, photo in ipairs(allPhotos) do
+    local fileName = photo:getFormattedMetadata("fileName")
+    if photoOfName[fileName] then
+      addTableRow(contents, f, "Duplicate photo name: " .. fileName, "", "<system/bold>")
+      return photoOfName, false
+    end
+    photoOfName[fileName] = photo
+  end
+  return photoOfName, true
+end
+
 local function buildGUI(f, properties)
   -- 创建表格布局
   local contents = {}
@@ -226,6 +239,11 @@ local function buildGUI(f, properties)
 
   -- 获取去重后的所有照片
   local allPhotos = getUniquePhotosFromSources(activeFolders)
+  -- 检查是否有重复的照片名
+  local photoOfName, ok = checkDuplicatePhotoNames(contents, f, allPhotos)
+  if not ok then
+    return contents
+  end
 
   -- 添加标题行，使用加粗字体
   addTableRow(contents, f, "Source Folder", "#Photos", "<system/bold>")
