@@ -169,30 +169,37 @@ local function processNCCONLST(xmlDom, properties)
 end
 
 local function buildGUI(f, properties)
-  local catalog = LrApplication.activeCatalog()
+  -- 创建表格布局
+  local contents = {}
 
-  -- 获取当前显示的文件夹
-  local activeSources = catalog:getActiveSources()
-  if #activeSources == 0 then
-    LrDialogs.message("Folder Information", "No active folder selected")
-    return
+  -- 获取当前选中的文件夹
+  local catalog = LrApplication.activeCatalog()
+  local activeFolders = {}
+  -- 从当前选中的source中过滤出文件夹
+  for _, source in ipairs(catalog:getActiveSources()) do
+    if source:type() == "LrFolder" then
+      table.insert(activeFolders, source)
+    end
+  end
+
+  if #activeFolders == 0 then
+    LrDialogs.message("Error", "Please select at least one folder.", "critical")
+    return contents
   end
 
   -- 获取去重后的所有照片
-  local allPhotos = getUniquePhotosFromSources(activeSources)
+  local allPhotos = getUniquePhotosFromSources(activeFolders)
 
   -- 过滤出非拍摄生成的照片
   local nonCameraGenerated = filterNonCameraGeneratedPhotos(allPhotos)
 
 
-  -- 创建表格布局
-  local contents = {}
 
   -- 添加标题行，使用加粗字体
   addTableRow(contents, f, "Source Folder", "#Photos", "<system/bold>")
 
   -- 添加每个source的行
-  addSourceRowsToContents(contents, activeSources, f)
+  addSourceRowsToContents(contents, activeFolders, f)
 
   -- 在表格末尾添加一行，显示去重后的照片总数，使用加粗字体
   addTableRow(contents, f, "Total unique photos", tostring(#allPhotos), "<system/bold>")
@@ -291,6 +298,10 @@ LrTasks.startAsyncTask(function()
     properties.groupList = nil
 
     local contents = buildGUI(f, properties)
+
+    if #contents == 0 then
+      return
+    end
 
     -- 将contents表中的UI元素放入到一个column布局中
     local c = f:column {
