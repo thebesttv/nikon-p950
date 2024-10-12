@@ -316,8 +316,8 @@ local function buildGUI(f, properties)
     title = "Group List",
     items = LrView.bind("groupList"),
     height = 200,
+    width = 500,
     fill_horizontal = 1,
-    place_horizontal = 1,
   })
 
   return contents
