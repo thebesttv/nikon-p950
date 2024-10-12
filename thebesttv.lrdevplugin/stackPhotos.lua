@@ -171,7 +171,7 @@ local function processNCCONLST(xmlDom, properties)
     local _, lastNumber, _ = parsePhotoName(lastPic)
     local _, displayNumber, _ = parsePhotoName(displayPic)
 
-    table.insert(groupItems, {
+    local item = {
       groupNumber = groupNumber,
       groupCount = groupCount,
       firstNumber = firstNumber,
@@ -181,8 +181,11 @@ local function processNCCONLST(xmlDom, properties)
       title = string.format(
         "%3d: %2d photos, %s - %s, display: %s",
         groupNumber, groupCount, firstPic, lastPic, displayPic),
-      value = groupNumber
-    })
+    }
+    -- 让 value 指向 item 本身
+    item.value = item
+
+    table.insert(groupItems, item)
   end
   properties.groupList = groupItems
 end
@@ -229,7 +232,6 @@ local function checkDuplicatePhotoNames(contents, f, allPhotos)
   for _, photo in ipairs(allPhotos) do
     local fileName = photo:getFormattedMetadata("fileName")
     local _, number, _ = parsePhotoName(fileName)
-    log(fileName .. " " .. number)
     if photoOfName[number] then
       local anotherPhoto = photoOfName[number]
       local anotherFileName = anotherPhoto:getFormattedMetadata("fileName")
@@ -262,6 +264,18 @@ local function getPhotosWithinRange(photoOfName, firstNumber, lastNumber, displa
   end
 
   return photos
+end
+
+local function selectPhotosWithinRange(catalog, photoOfName, group)
+  local firstNumber = group.firstNumber
+  local lastNumber = group.lastNumber
+  local displayNumber = group.displayNumber
+
+  local photos = getPhotosWithinRange(photoOfName, firstNumber, lastNumber, displayNumber)
+  if #photos > 0 then
+    -- 选中第一张和其余的
+    catalog:setSelectedPhotos(photos[1], photos)
+  end
 end
 
 local function buildGUI(f, properties)
@@ -355,22 +369,23 @@ local function buildGUI(f, properties)
     f:push_button {
       title = "Select",
       action = function()
-        -- 遍历 groupList，看哪些在 photoOfName 中
-        for _, group in ipairs(properties.groupList) do
-          local firstNumber = group.firstNumber
-          local lastNumber = group.lastNumber
-          local displayNumber = group.displayNumber
-
-          local photos = getPhotosWithinRange(photoOfName, firstNumber, lastNumber, displayNumber)
-          if #photos > 0 then
-            -- 选中第一张和其余的
-            catalog:setSelectedPhotos(photos[1], photos)
-          end
-        end
+        log("selected: ", properties.selected)
       end,
       enabled = true, -- 绑定按钮的启用状态
     },
   })
+
+  properties.selected = {} -- 用于绑定simple_list的选中项
+  properties:addObserver('selected', function(properties, key, newValue)
+    LrTasks.startAsyncTask(function()
+      log("selected changed")
+      if properties.selected and #properties.selected > 0 then
+        local selectedItem = properties.selected[1] -- 假设选中的是第一个
+        log("Selected Group: " .. selectedItem.title)
+        -- 可以在这里调用 `selectPhotosWithinRange` 等其他逻辑
+      end
+    end)
+  end)
 
   -- 解析后的NCCONLST.LST文件内容
   addTableRow(contents, f, "NCCONLST.LST Contents:", "", "<system/bold>")
@@ -379,7 +394,8 @@ local function buildGUI(f, properties)
   addTableLineWithBind(contents, f, "Group Total: ", "groupTotal", "<system>")
   table.insert(contents, f:simple_list {
     title = "Group List",
-    items = LrView.bind("groupList"),
+    items = LrView.bind("groupList"), -- 绑定组列表
+    value = LrView.bind("selected"),  -- 绑定选中的组
     height = 200,
     width = 500,
     fill_horizontal = 1,
@@ -417,16 +433,16 @@ LrTasks.startAsyncTask(function()
     }
 
     -- 显示自定义对话框
-    -- LrDialogs.presentFloatingDialog(_PLUGIN, {
-    --   title = "Source Information",
-    --   contents = c,
-    --   resizable = true,
-    -- })
-    LrDialogs.presentModalDialog {
+    LrDialogs.presentFloatingDialog(_PLUGIN, {
       title = "Source Information",
       contents = c,
       resizable = true,
-      cancelVerb = "< exclude >"
-    }
+    })
+    -- LrDialogs.presentModalDialog {
+    --   title = "Source Information",
+    --   contents = c,
+    --   resizable = true,
+    --   cancelVerb = "< exclude >"
+    -- }
   end)
 end)
