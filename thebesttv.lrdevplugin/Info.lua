@@ -5,12 +5,12 @@ return {
   LrSdkMinimumVersion = 6.0,
 
   LrToolkitIdentifier = "tech.thebesttv.nikon",
-  LrPluginName = "Nikon Collect",
+  LrPluginName = "NikonStacker - 图像堆叠插件",
 
   LrLibraryMenuItems = {
     {
-      title = "Hello",
-      file = "hello.lua",
+      title = "Stack Photos",
+      file = "stackPhotos.lua",
     },
   },
 }
