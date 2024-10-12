@@ -168,6 +168,43 @@ local function processNCCONLST(xmlDom, properties)
   properties.groupList = groupItems
 end
 
+local function checkNonCameraGeneratedPhotos(contents, f, allPhotos)
+  -- 过滤出非拍摄生成的照片
+  local nonCameraGenerated = filterNonCameraGeneratedPhotos(allPhotos)
+
+  if #nonCameraGenerated == 0 then
+    return false
+  end
+
+  -- 添加非拍摄生成的照片数量行
+  addTableRow(contents, f, "Non-camera generated photos", tostring(#nonCameraGenerated), "<system/bold>")
+
+  local items = {}
+  local maxChars = 0
+  for i = 1, #nonCameraGenerated do
+    local fileName = nonCameraGenerated[i]:getFormattedMetadata("fileName")
+    local path = nonCameraGenerated[i]:getRawMetadata("path")
+
+    local line = fileName .. "\t" .. path
+    table.insert(items, line)
+    maxChars = math.max(maxChars, #line)
+  end
+
+  table.insert(contents, f:scrolled_view {
+    height = 200,
+    width = 500,
+    f:static_text {
+      title = table.concat(items, "\n"),
+      width_in_chars = math.max(50, maxChars),
+      height_in_lines = #items,
+    },
+  })
+
+  LrDialogs.message("Error", "Can't be applied to non-camera generated sets!", "critical")
+
+  return true
+end
+
 local function buildGUI(f, properties)
   -- 创建表格布局
   local contents = {}
@@ -190,9 +227,6 @@ local function buildGUI(f, properties)
   -- 获取去重后的所有照片
   local allPhotos = getUniquePhotosFromSources(activeFolders)
 
-  -- 过滤出非拍摄生成的照片
-  local nonCameraGenerated = filterNonCameraGeneratedPhotos(allPhotos)
-
   -- 添加标题行，使用加粗字体
   addTableRow(contents, f, "Source Folder", "#Photos", "<system/bold>")
 
@@ -203,33 +237,7 @@ local function buildGUI(f, properties)
   addTableRow(contents, f, "Total unique photos", tostring(#allPhotos), "<system/bold>")
 
   -- 如果有非拍摄生成的照片，列出这些照片
-  if #nonCameraGenerated > 0 then
-    -- 添加非拍摄生成的照片数量行
-    addTableRow(contents, f, "Non-camera generated photos", tostring(#nonCameraGenerated), "<system/bold>")
-
-    local items = {}
-    local maxChars = 0
-    for i = 1, #nonCameraGenerated do
-      local fileName = nonCameraGenerated[i]:getFormattedMetadata("fileName")
-      local path = nonCameraGenerated[i]:getRawMetadata("path")
-
-      local line = fileName .. "\t" .. path
-      table.insert(items, line)
-      maxChars = math.max(maxChars, #line)
-    end
-
-    table.insert(contents, f:scrolled_view {
-      height = 200,
-      width = 500,
-      f:static_text {
-        title = table.concat(items, "\n"),
-        width_in_chars = math.max(50, maxChars),
-        height_in_lines = #items,
-      },
-    })
-
-    LrDialogs.message("Error", "Can't be applied to non-camera generated sets!", "critical")
-
+  if checkNonCameraGeneratedPhotos(contents, f, allPhotos) then
     return contents
   end
 
