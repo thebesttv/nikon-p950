@@ -49,8 +49,9 @@ def handle_video(filename, output, rotate_left, dry_run):
     correct_time = bad_time.astimezone(ZoneInfo('Asia/Shanghai'))
     print(f'Parsed into: {correct_time}')
 
-    # use UTC timezone
-    formatted_time = correct_time.astimezone(ZoneInfo('UTC')) \
+    # use UTC (Etc/UTC) timezone
+    #   https://stackoverflow.com/a/35031412/11938767
+    formatted_time = correct_time.astimezone(ZoneInfo('Etc/UTC')) \
         .strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     print()
     print(f'Original: {creation_time}')
