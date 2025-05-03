@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import argparse
 
 CMD = '''
-ffmpeg -y -hide_banner \\
+{ffmpeg} -y -hide_banner \\
     -i {input} \\
     \\
     -c:v libx264 -crf 22 -preset veryslow \\
@@ -22,8 +22,8 @@ ffmpeg -y -hide_banner \\
     {output}
 '''
 
-def get_ffprobe_info(filename):
-    command = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filename]
+def get_ffprobe_info(filename, ffprobe):
+    command = [ffprobe, '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filename]
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     assert result.returncode == 0
     return json.loads(result.stdout)
@@ -31,12 +31,12 @@ def get_ffprobe_info(filename):
 def get_tag(d, tag):
     return d['tags'][tag]
 
-def handle_video(filename, output, rotate_left, dry_run):
+def handle_video(filename, output, rotate_left, dry_run, ffmpeg, ffprobe):
     print("=========================================")
     print(f"= Input:  {filename}")
     print(f"= Output: {output}")
     print("=========================================")
-    info = get_ffprobe_info(filename)
+    info = get_ffprobe_info(filename, ffprobe)
 
     creation_time = get_tag(info['format'], 'creation_time')
     print(f'Original creation time: {creation_time}')
@@ -58,6 +58,7 @@ def handle_video(filename, output, rotate_left, dry_run):
     print(f'Updated:  {formatted_time}')
 
     cmd = CMD.format(
+        ffmpeg=ffmpeg,
         input=filename,
         ctime=formatted_time,
         output=output,
@@ -75,6 +76,10 @@ if __name__ == '__main__':
                         help='Rotate all videos 90 degrees to the left')
     parser.add_argument('-n', '--dryrun', action='store_true',
                         help='Print the commands instead of executing them')
+    parser.add_argument('--ffmpeg', default='ffmpeg', metavar='PATH',
+                        help='Path to ffmpeg executable')
+    parser.add_argument('--ffprobe', default='ffprobe', metavar='PATH',
+                        help='Path to ffprobe executable')
     parser.add_argument('videos', nargs='+', help='Videos to compress')
 
     args = parser.parse_args()
@@ -89,4 +94,5 @@ if __name__ == '__main__':
         if not args.dryrun:
             os.makedirs(os.path.dirname(output), exist_ok=True)
 
-        handle_video(filename, output, args.left, args.dryrun)
+        handle_video(filename, output, args.left, args.dryrun,
+                     args.ffmpeg, args.ffprobe)
