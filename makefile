@@ -20,6 +20,12 @@ FFMPEG_TARGETS_windows = $(FFMPEG_DEST_windows)/ffmpeg.exe $(FFMPEG_DEST_windows
 all: nikon-p950-vc.exe python.exe \
 	$(FFMPEG_TARGETS_linux) $(FFMPEG_TARGETS_windows)
 
+nikon-p950-vc.zip: all
+	zip -r nikon-p950-vc.zip \
+		nikon-p950-vc.exe \
+		python.exe nikon-p950-vc.py \
+		$(FFMPEG_DEST)
+
 nikon-p950-vc.exe: main.cpp
 	$(CXX) $(CFLAGS) -o nikon-p950-vc.exe main.cpp
 
