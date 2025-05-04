@@ -4,12 +4,12 @@
  *   PATH=~/cosmo/cosmocc-4.0.2/bin/:$PATH make
  *   ./main.exe args...
  * 会执行命令：
- *   python.exe nikon-p950-vc --ffmpeg [...] --ffprobe [...] args...
+ *   python.exe nikon-p950-vc.py --ffmpeg [...] --ffprobe [...] args...
  * - 其中 ffmpeg 和 ffprobe 的路径根据当前 OS 选择
  *   - Linux:   ffmpeg/linux/{ffmpeg,ffprobe}
  *   - Windows: ffmpeg/windows/{ffmpeg.exe,ffprobe.exe}
  * - python.exe 是 Cosmos 打包的版本
- * - args... 是给定参数，传递给 nikon-p950-vc 脚本
+ * - args... 是给定参数，传递给 Python 脚本
  */
 
 #include <chrono>
@@ -29,7 +29,7 @@
 
 namespace fs = std::filesystem;
 
-const char *SCRIPT_NAME = "nikon-p950-vc";
+const char *SCRIPT_NAME = "nikon-p950-vc.py";
 
 /*****************************************************************
  * fmt::formatter for std::filesystem::path
