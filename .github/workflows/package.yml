@@ -1,0 +1,35 @@
+name: Build and package
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    name: Build and package
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Prepare cosmocc
+        run: |
+          mkdir -p cosmocc
+          cd cosmocc
+          wget https://cosmo.zip/pub/cosmocc/cosmocc.zip
+          unzip cosmocc.zip
+          echo "PATH=$PWD/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          make
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nikon-p950-vc
+          path: |
+            nikon-p950-vc.exe
+            python.exe
+            nikon-p950-vc.py
+            ffmpeg/
+          if-no-files-found: error
