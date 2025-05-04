@@ -17,18 +17,18 @@ FFMPEG_TARGETS_windows = $(FFMPEG_DEST_windows)/ffmpeg.exe $(FFMPEG_DEST_windows
 
 .PHONY: all clean distclean
 
-all: main.exe python.exe \
+all: nikon-p950-vc.exe python.exe \
 	$(FFMPEG_TARGETS_linux) $(FFMPEG_TARGETS_windows)
 
-main.exe: main.cpp
-	$(CXX) $(CFLAGS) -o main.exe main.cpp
+nikon-p950-vc.exe: main.cpp
+	$(CXX) $(CFLAGS) -o nikon-p950-vc.exe main.cpp
 
 python.exe:
 	wget -O python.exe 'https://cosmo.zip/pub/cosmos/bin/python'
 	chmod +x python.exe
 
 clean:
-	rm -rf main.exe*
+	rm -rf nikon-p950-vc.exe*
 
 distclean: clean
 	rm -rf $(FFMPEG_DEST)
